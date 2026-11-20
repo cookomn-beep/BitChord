@@ -116,8 +116,10 @@ class EmbeddedProxyVpnService : VpnService() {
             .setSession("BitChord 内置代理")
             .setMtu(1400)
             .addAddress("172.19.0.1", 30)
+            .addAddress(InetAddress.getByName("fdfe:dcba:9876::1"), 126)
             .addRoute(InetAddress.getByName("0.0.0.0"), 0)
-            .addDnsServer("198.18.0.2")
+            .addRoute(InetAddress.getByName("::"), 0)
+            .addDnsServer(InetAddress.getByName("198.18.0.2"))
             .addAllowedApplication(packageName)
         val descriptor = builder.establish() ?: error("Android 未能建立 VPN 隧道")
         val fd = descriptor.detachFd()
@@ -126,7 +128,7 @@ class EmbeddedProxyVpnService : VpnService() {
             cb = tunCallback,
             device = "bitchord",
             stack = "system",
-            address = "172.19.0.1/30",
+            address = "172.19.0.1/30,fdfe:dcba:9876::1/126",
             dns = "198.18.0.2",
             mtu = 1400,
         )
@@ -203,13 +205,14 @@ class EmbeddedProxyVpnService : VpnService() {
             mixed-port: 17890
             allow-lan: false
             mode: rule
+            find-process-mode: off
             log-level: warning
-            ipv6: false
+            ipv6: true
             external-controller: 127.0.0.1:19090
             dns:
               enable: true
               listen: 127.0.0.1:1053
-              ipv6: false
+              ipv6: true
               enhanced-mode: fake-ip
               nameserver:
                 - 223.5.5.5
