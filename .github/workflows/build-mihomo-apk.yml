@@ -1,4 +1,5 @@
 name: Build BitChord embedded Mihomo
+# This workflow verifies the pinned native core dependency and APK packaging.
 
 on:
   workflow_dispatch:
