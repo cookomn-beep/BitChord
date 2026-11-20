@@ -14,6 +14,10 @@ on:
       - "settings.gradle.kts"
       - "gradle/**"
 
+concurrency:
+  group: embedded-mihomo-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
