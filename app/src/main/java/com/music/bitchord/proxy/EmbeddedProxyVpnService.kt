@@ -76,15 +76,18 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
             .put("home-dir", home.absolutePath)
             .put("version", Build.VERSION.SDK_INT)
             .toString()
-        val setupError = suspendCancellableCoroutine<String?> { continuation ->
-            Clash.quickSetup(initJson, """{"selected-map":{}}""") { result ->
-                if (continuation.isActive) continuation.resume(result)
+        val setupError = try {
+            suspendCancellableCoroutine<String?> { continuation ->
+                Clash.quickSetup(initJson, """{"selected-map":{}}""") { result ->
+                    if (continuation.isActive) continuation.resume(result)
+                }
             }
+        } finally {
+            // The running core has the provider URL in memory. Remove its plaintext
+            // copy from disk even when configuration loading fails.
+            config.writeText("# BitChord generated config; subscription URL is stored in Android Keystore.\\n")
         }
         check(setupError.isNullOrEmpty()) { "Mihomo 配置加载失败：$setupError" }
-        // The running core has the provider URL in memory. Remove its plaintext
-        // copy from disk; the original remains encrypted in Android Keystore.
-        config.writeText("# BitChord generated config; subscription URL is stored in Android Keystore.\\n")
 
         val builder = Builder()
             .setSession("BitChord 内置代理")
