@@ -395,6 +395,7 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         if (
             com.music.bitchord.proxy.ProxySecretStore.hasSubscription(this) &&
+            com.music.bitchord.proxy.ProxySecretStore.isEnabled(this) &&
             android.net.VpnService.prepare(this) == null &&
             !com.music.bitchord.proxy.EmbeddedProxyVpnService.isRunning
         ) {

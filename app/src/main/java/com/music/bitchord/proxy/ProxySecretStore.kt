@@ -14,9 +14,17 @@ import javax.crypto.spec.GCMParameterSpec
 object ProxySecretStore {
     private const val PREFS = "embedded_proxy_secure"
     private const val VALUE = "subscription_ciphertext"
+    private const val ENABLED = "proxy_enabled"
     private const val KEY_ALIAS = "bitchord_embedded_proxy_v1"
 
     fun hasSubscription(context: Context): Boolean = getSubscription(context).isNotBlank()
+
+    fun isEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(ENABLED, false)
+
+    fun setEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(ENABLED, enabled).apply()
+    }
 
     fun getSubscription(context: Context): String {
         val encoded = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(VALUE, null)
@@ -44,7 +52,7 @@ object ProxySecretStore {
     }
 
     fun clear(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(VALUE).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(VALUE).remove(ENABLED).apply()
     }
 
     private fun key(): SecretKey {

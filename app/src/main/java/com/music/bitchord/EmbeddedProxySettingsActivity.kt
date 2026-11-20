@@ -58,6 +58,7 @@ class EmbeddedProxySettingsActivity : ComponentActivity() {
                         onClick = {
                             runCatching { ProxySecretStore.saveSubscription(this@EmbeddedProxySettingsActivity, url.trim()) }
                                 .onSuccess {
+                                    ProxySecretStore.setEnabled(this@EmbeddedProxySettingsActivity, true)
                                     message = "订阅已加密保存。正在请求系统 VPN 授权…"
                                     val request = VpnService.prepare(this@EmbeddedProxySettingsActivity)
                                     if (request == null) startProxy() else permission.launch(request)
@@ -68,6 +69,7 @@ class EmbeddedProxySettingsActivity : ComponentActivity() {
                     ) { Text("保存并连接") }
                     TextButton(
                         onClick = {
+                            ProxySecretStore.setEnabled(this@EmbeddedProxySettingsActivity, false)
                             startService(Intent(this@EmbeddedProxySettingsActivity, EmbeddedProxyVpnService::class.java).setAction(EmbeddedProxyVpnService.ACTION_STOP))
                             message = "已发送断开请求。"
                         },
