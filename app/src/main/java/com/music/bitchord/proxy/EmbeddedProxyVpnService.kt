@@ -272,6 +272,12 @@ class EmbeddedProxyVpnService : VpnService() {
             // stopTun is idempotent and also shuts down the core listener if
             // VPN establishment failed after quickSetup completed.
             runCatching { Clash.stopTun() }
+            runCatching {
+                Clash.invokeAction(
+                    JSONObject().put("id", "bitchord-stop-listener")
+                        .put("method", "stopListener").toString(),
+                ) { }
+            }
         }
         tunStarted = false
         isRunning = false
