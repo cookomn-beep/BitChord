@@ -148,6 +148,16 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
                   - PROXY
                   - DIRECT
             rules:
+              - DOMAIN-SUFFIX,163.com,DIRECT
+              - DOMAIN-SUFFIX,netease.com,DIRECT
+              - DOMAIN-SUFFIX,qq.com,DIRECT
+              - DOMAIN-SUFFIX,qpic.cn,DIRECT
+              - DOMAIN-SUFFIX,gtimg.com,DIRECT
+              - DOMAIN-SUFFIX,kuwo.cn,DIRECT
+              - DOMAIN-SUFFIX,kugou.com,DIRECT
+              - DOMAIN-SUFFIX,migu.cn,DIRECT
+              - DOMAIN-SUFFIX,baidu.com,DIRECT
+              - DOMAIN-SUFFIX,bilibili.com,DIRECT
               - DOMAIN-SUFFIX,cn,DIRECT
               - GEOIP,CN,DIRECT
               - MATCH,PROXY
@@ -155,7 +165,9 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
     }
 
     private fun stopCore() {
-        if (tunStarted && runCatching { Clash.isLoaded() }.getOrDefault(false)) {
+        if (runCatching { Clash.isLoaded() }.getOrDefault(false)) {
+            // stopTun is idempotent and also shuts down the core listener if
+            // VPN establishment failed after quickSetup completed.
             runCatching { Clash.stopTun() }
         }
         tunStarted = false
