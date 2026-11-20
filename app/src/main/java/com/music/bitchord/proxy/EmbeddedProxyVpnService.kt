@@ -50,7 +50,9 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
                 try {
                     startCore()
                 } catch (error: Throwable) {
-                    android.util.Log.e(TAG, "Embedded proxy startup failed", error)
+                    // Do not log the exception message: some HTTP stacks include
+                    // the subscription URL in provider errors.
+                    android.util.Log.e(TAG, "Embedded proxy startup failed (${error.javaClass.simpleName})")
                     stopCore()
                     stopSelf()
                 }
@@ -80,6 +82,9 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
             }
         }
         check(setupError.isNullOrEmpty()) { "Mihomo 配置加载失败：$setupError" }
+        // The running core has the provider URL in memory. Remove its plaintext
+        // copy from disk; the original remains encrypted in Android Keystore.
+        config.writeText("# BitChord generated config; subscription URL is stored in Android Keystore.\\n")
 
         val builder = Builder()
             .setSession("BitChord 内置代理")
