@@ -1548,6 +1548,21 @@ fun SettingsScreen(
         // No footer: it only restated the stop-on-close row's own subtitle,
         // which sits four rows above it and says the same thing in fewer words.
         if (shows(SettingsCategory.MISCELLANEOUS)) SearchableSettingsGroup(search, header = stringResource(R.string.miscellaneous)) {
+            row("内置代理", "proxy", "vpn", "subscription", "mihomo") {
+                SettingsRow(
+                    icon = SfIcons.Miscellaneous,
+                    title = "内置代理",
+                    subtitle = "国内直连 · 海外按规则代理",
+                    onClick = {
+                        context.startActivity(
+                            android.content.Intent(
+                                context,
+                                com.music.bitchord.EmbeddedProxySettingsActivity::class.java,
+                            ),
+                        )
+                    },
+                )
+            }
             val playNextOnSwipeTitle = stringResource(R.string.play_next_on_swipe)
             row(playNextOnSwipeTitle, "swipe", "queue") {
                 SettingsRow(
