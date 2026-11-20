@@ -76,7 +76,7 @@ class EmbeddedProxySettingsActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text("断开内置代理") }
                     Text(message, style = MaterialTheme.typography.bodyMedium)
-                    Text("注意：连接 BitChord 内置代理前，请先断开 FlClash。Android 同一时间通常只能使用一个 VPN。")
+                    Text("首次连接时，如果 FlClash 仍在运行，BitChord 会先尝试通过它的 7890 混合端口读取订阅；随后由 Android 切换到 BitChord 内置 VPN。连接后不需要再打开 FlClash。")
                 }
             }
         }

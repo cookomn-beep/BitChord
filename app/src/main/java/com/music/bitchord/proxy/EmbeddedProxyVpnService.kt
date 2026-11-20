@@ -22,6 +22,9 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
 import java.io.File
 import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.URL
 import kotlin.coroutines.resume
 
 /**
@@ -67,8 +70,14 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
 
         val home = File(filesDir, "mihomo").apply { mkdirs() }
         val providerDir = File(home, "providers").apply { mkdirs() }
+        val providerFile = File(providerDir, "bitchord.yaml")
+        if (!providerFile.exists() || providerFile.length() == 0L) {
+            // First import can use the already-running FlClash local mixed port.
+            // Once this TUN is established, Mihomo handles provider refresh itself.
+            prefetchSubscription(subscription, providerFile)
+        }
         val config = File(home, "config.yaml")
-        config.writeText(buildConfig(subscription, File(providerDir, "bitchord.yaml").absolutePath))
+        config.writeText(buildConfig(subscription, providerFile.absolutePath))
 
         Clash.load(applicationInfo.nativeLibraryDir)
         check(Clash.isLoaded()) { "Mihomo 核心加载失败" }
@@ -110,6 +119,34 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
         tunStarted = true
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, notification("已连接 · 国内直连 / 海外代理"))
+    }
+
+    private fun prefetchSubscription(subscription: String, target: File) {
+        fun fetch(proxy: Proxy): ByteArray {
+            val connection = URL(subscription).openConnection(proxy)
+            connection.connectTimeout = 12_000
+            connection.readTimeout = 30_000
+            connection.setRequestProperty("User-Agent", "clash.meta")
+            connection.setRequestProperty("Accept", "*/*")
+            val bytes = connection.getInputStream().use { it.readBytes() }
+            require(bytes.isNotEmpty() && bytes.size <= 10 * 1024 * 1024) {
+                "订阅内容为空或超过 10 MB"
+            }
+            val preview = String(bytes, Charsets.UTF_8).trimStart('\\uFEFF').trimStart()
+            require(
+                !preview.startsWith("<html", ignoreCase = true) &&
+                    !preview.startsWith("<!doctype", ignoreCase = true)
+            ) { "订阅服务器返回了网页而不是节点配置" }
+            return bytes
+        }
+
+        val localFlClash = Proxy(
+            Proxy.Type.HTTP,
+            InetSocketAddress("127.0.0.1", 7890),
+        )
+        val payload = runCatching { fetch(localFlClash) }
+            .getOrElse { fetch(Proxy.NO_PROXY) }
+        target.writeBytes(payload)
     }
 
     private fun buildConfig(subscription: String, providerPath: String): String {
