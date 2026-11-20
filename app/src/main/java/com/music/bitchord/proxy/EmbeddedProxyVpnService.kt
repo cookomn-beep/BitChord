@@ -159,6 +159,16 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
               - DOMAIN-SUFFIX,baidu.com,DIRECT
               - DOMAIN-SUFFIX,bilibili.com,DIRECT
               - DOMAIN-SUFFIX,cn,DIRECT
+              - DOMAIN-SUFFIX,jiosaavn.com,PROXY
+              - DOMAIN-SUFFIX,saavn.com,PROXY
+              - DOMAIN-SUFFIX,spotify.com,PROXY
+              - DOMAIN-SUFFIX,scdn.co,PROXY
+              - DOMAIN-SUFFIX,youtube.com,PROXY
+              - DOMAIN-SUFFIX,youtubei.googleapis.com,PROXY
+              - DOMAIN-SUFFIX,googlevideo.com,PROXY
+              - DOMAIN-SUFFIX,deezer.com,PROXY
+              - DOMAIN-SUFFIX,tidal.com,PROXY
+              - DOMAIN-SUFFIX,qobuz.com,PROXY
               - GEOIP,CN,DIRECT
               - MATCH,PROXY
         """.trimIndent()
