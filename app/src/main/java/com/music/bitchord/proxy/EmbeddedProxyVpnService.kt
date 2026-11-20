@@ -83,7 +83,7 @@ class EmbeddedProxyVpnService : VpnService() {
         val subscription = ProxySecretStore.getSubscription(this)
         check(subscription.isNotBlank()) { "请先在 BitChord 设置中填写订阅地址" }
 
-        val home = File(filesDir, "mihomo").apply { mkdirs() }
+        val home = File(noBackupFilesDir, "mihomo").apply { mkdirs() }
         val providerDir = File(home, "providers").apply { mkdirs() }
         val providerFile = File(providerDir, "bitchord.yaml")
         if (!providerFile.exists() || providerFile.length() == 0L) {
