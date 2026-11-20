@@ -68,6 +68,35 @@ val addonAuthServer: String = (
 // See the root build.gradle.kts: one version for the phone and its watch app.
 val betaSuffix = rootProject.extra["bitchordBetaSuffix"] as String
 
+// Embedded Mihomo core. The AAR is pinned and checksum-verified before Gradle consumes it.
+val mihomoVersion = "0.3.14"
+val mihomoSha256 = "7c3a68a4ef9afcb5018e167dc70fba7485652d0a0e29ba006703cf00fed9e230"
+val mihomoAar = layout.buildDirectory.file("libs/libmihomo-android-v$mihomoVersion.aar")
+val downloadMihomo = tasks.register("downloadMihomoAndroid") {
+    inputs.property("mihomoVersion", mihomoVersion)
+    outputs.file(mihomoAar)
+    doLast {
+        val target = mihomoAar.get().asFile
+        target.parentFile.mkdirs()
+        val url = "https://github.com/oviron/libmihomo-android/releases/download/v$mihomoVersion/libmihomo-android-v$mihomoVersion.aar"
+        uri(url).toURL().openStream().use { input -> target.outputStream().use { input.copyTo(it) } }
+        val digest = MessageDigest.getInstance("SHA-256")
+        val actual = target.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+            digest.digest().joinToString("") { "%02x".format(it) }
+        }
+        if (!actual.equals(mihomoSha256, ignoreCase = true)) {
+            target.delete()
+            throw GradleException("Mihomo AAR SHA-256 mismatch: $actual")
+        }
+    }
+}
+
 android {
     namespace = "com.music.bitchord"
     // InnerTubeX's AAR requires compiling against 37; targetSdk (runtime behaviour) stays 36.
@@ -276,6 +305,7 @@ val newPipeExtractorStripped = tasks.register<org.gradle.api.tasks.bundling.Jar>
 }
 
 dependencies {
+    implementation(files(mihomoAar).builtBy(downloadMihomo))
     implementation(project(":shared"))
     implementation(project(":sharedUi"))
 
