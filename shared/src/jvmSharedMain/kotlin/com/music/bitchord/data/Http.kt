@@ -9,9 +9,51 @@ import okio.BufferedSource
 import okio.ForwardingSource
 import okio.Source
 import okio.buffer
+import java.io.IOException
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.ProxySelector
+import java.net.SocketAddress
+import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * Routes non-mainland requests through the local FlClash mixed port.
+ *
+ * Mainland services are kept direct so their traffic does not make an
+ * unnecessary round trip through the proxy. The proxy subscription itself
+ * stays in FlClash; no subscription URL or credential is stored in BitChord.
+ */
+private object FlClashProxySelector : ProxySelector() {
+    private const val PROXY_HOST = "127.0.0.1"
+    private const val PROXY_PORT = 7890
+
+    private val mainlandDomains = setOf(
+        "music.163.com", "music.126.net", "163.com", "126.net",
+        "qq.com", "gtimg.cn", "kuwo.cn", "kugou.com", "kgimg.com",
+        "migu.cn", "music.migu.cn", "douban.com", "xiami.com",
+    )
+
+    private fun isMainlandHost(host: String): Boolean {
+        val normalized = host.lowercase().trimEnd('.')
+        if (normalized == "localhost" || normalized.endsWith(".localhost")) return true
+        if (normalized.endsWith(".cn")) return true
+        return mainlandDomains.any { normalized == it || normalized.endsWith(".$it") }
+    }
+
+    override fun select(uri: URI): List<Proxy> {
+        val host = uri.host ?: return listOf(Proxy.NO_PROXY)
+        if (isMainlandHost(host)) return listOf(Proxy.NO_PROXY)
+        return listOf(Proxy(Proxy.Type.HTTP, InetSocketAddress(PROXY_HOST, PROXY_PORT)))
+    }
+
+    override fun connectFailed(uri: URI, sa: SocketAddress, ioe: IOException) {
+        // Do not silently fall back to a direct connection: that would defeat
+        // the user's explicit proxy routing choice and may leak blocked traffic.
+    }
+}
 
 /**
  * One OkHttp client for the whole app.
@@ -39,25 +81,6 @@ import java.util.concurrent.atomic.AtomicLong
 object Http {
 
     // ---- Temporary data-usage instrumentation --------------------------
-    //
-    // Added to answer, with real numbers instead of code-reading, which of
-    // this app's network callers actually account for the reported data
-    // usage (issue #48): every request funnels through this one client, so
-    // a network interceptor here sees every byte the app receives,
-    // regardless of which subsystem asked for it. Categorised by host —
-    // googlevideo.com is YouTube's own audio bytes (and StreamResolver's
-    // probes, distinguishable by their small actual read against a 2MB
-    // Range ask), a canvas provider's CDN is motion artwork, youtube.com /
-    // youtubei is API/extraction traffic. Grep logcat for "BCDataUsage"
-    // during a play session; each line is one response with its actual
-    // transferred bytes and the running total for its host.
-    //
-    // Left in place rather than deleted — the investigation this served is
-    // not the last one this app will need — but off by default: flip to
-    // true only while actively measuring. Wrapping every response body in a
-    // counting source and writing a log line per request is not free, and
-    // paying that on every install for a question already answered is the
-    // wrong trade.
     private const val USAGE_LOGGING_ENABLED = false
     private const val USAGE_TAG = "BCDataUsage"
     private val usageTotals = ConcurrentHashMap<String, AtomicLong>()
@@ -111,9 +134,6 @@ object Http {
      * Adds the WebDAV Basic credential to requests aimed at the configured
      * server, so both PROPFIND listings and ExoPlayer's media fetches (which
      * share this client via OkHttpDataSource) authenticate the same way.
-     *
-     * Read off [com.music.bitchord.data.webdav.WebDavAuth] rather than prefs
-     * so the network layer never touches storage: AppSettings publishes here.
      */
     private val webDavInterceptor = okhttp3.Interceptor { chain ->
         val request = chain.request()
@@ -131,6 +151,7 @@ object Http {
     }
 
     val client: OkHttpClient = OkHttpClient.Builder()
+        .proxySelector(FlClashProxySelector)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
