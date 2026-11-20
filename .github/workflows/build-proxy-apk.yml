@@ -29,11 +29,13 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install required CMake
-        run: sdkmanager "cmake;3.22.1"
+      # GitHub's Ubuntu runner image already includes the Android SDK.
+      # Use its installed sdkmanager directly; setup-android currently
+      # attempts to install the retired "tools" package on this image.
+      - name: Accept Android SDK licenses and install CMake
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "cmake;3.22.1"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
