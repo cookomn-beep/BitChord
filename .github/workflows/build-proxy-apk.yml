@@ -1,0 +1,50 @@
+name: Build FlClash proxy APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - proxy-routing-flclash
+    paths:
+      - "app/**"
+      - "shared/**"
+      - ".github/workflows/build-proxy-apk.yml"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install required CMake
+        run: sdkmanager "cmake;3.22.1"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build separate-install debug APK
+        run: ./gradlew :app:assembleDevDebug --stacktrace
+
+      - name: Upload APK files
+        uses: actions/upload-artifact@v4
+        with:
+          name: BitChord-FlClash-Proxy-DevDebug
+          path: app/build/outputs/apk/dev/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
