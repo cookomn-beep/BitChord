@@ -38,7 +38,13 @@ private object FlClashProxySelector : ProxySelector() {
 
     private fun isMainlandHost(host: String): Boolean {
         val normalized = host.lowercase().trimEnd('.')
-        if (normalized == "localhost" || normalized.endsWith(".localhost")) return true
+        if (normalized == "localhost" || normalized.endsWith(".localhost") ||
+            normalized == "::1" || normalized == "0.0.0.0" ||
+            normalized.startsWith("127.") || normalized.startsWith("10.") ||
+            normalized.startsWith("192.168.") || normalized.startsWith("169.254.")
+        ) return true
+        val ipv4 = normalized.split('.').mapNotNull { it.toIntOrNull() }
+        if (ipv4.size == 4 && ipv4[0] == 172 && ipv4[1] in 16..31) return true
         if (normalized.endsWith(".cn")) return true
         return mainlandDomains.any { normalized == it || normalized.endsWith(".$it") }
     }
