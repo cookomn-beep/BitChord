@@ -1,6 +1,7 @@
 package com.music.bitchord.data.jiosaavn
 
 import android.util.Base64
+import com.music.bitchord.data.Http
 import com.music.bitchord.data.TrackLog
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -130,6 +131,10 @@ object JioSaavnService {
     // Note: BitChord uses OkHttp engine for ktor
     private val client by lazy {
         HttpClient(OkHttp) {
+            // Reuse the app-wide OkHttp client so JioSaavn API calls follow
+            // the same FlClash routing policy as the corresponding media
+            // streams and other source requests.
+            engine { preconfigured = Http.client }
             install(ContentNegotiation) { json(json) }
             install(HttpTimeout) {
                 requestTimeoutMillis = 6_000
