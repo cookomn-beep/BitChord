@@ -132,7 +132,7 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
             require(bytes.isNotEmpty() && bytes.size <= 10 * 1024 * 1024) {
                 "订阅内容为空或超过 10 MB"
             }
-            val preview = String(bytes, Charsets.UTF_8).trimStart('\\uFEFF').trimStart()
+            val preview = String(bytes, Charsets.UTF_8).trimStart('\uFEFF').trimStart()
             require(
                 !preview.startsWith("<html", ignoreCase = true) &&
                     !preview.startsWith("<!doctype", ignoreCase = true)
