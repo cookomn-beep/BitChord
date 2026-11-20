@@ -391,6 +391,20 @@ internal fun shouldSkipAfterDislike(
 
 
 class MainActivity : AppCompatActivity() {
+    override fun onStart() {
+        super.onStart()
+        if (
+            com.music.bitchord.proxy.ProxySecretStore.hasSubscription(this) &&
+            android.net.VpnService.prepare(this) == null &&
+            !com.music.bitchord.proxy.EmbeddedProxyVpnService.isRunning
+        ) {
+            androidx.core.content.ContextCompat.startForegroundService(
+                this,
+                Intent(this, com.music.bitchord.proxy.EmbeddedProxyVpnService::class.java),
+            )
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
