@@ -18,6 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
 import java.io.File
@@ -73,11 +75,10 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
         val providerFile = File(providerDir, "bitchord.yaml")
         if (!providerFile.exists() || providerFile.length() == 0L) {
             // First import can use the already-running FlClash local mixed port.
-            // Once this TUN is established, Mihomo handles provider refresh itself.
-            prefetchSubscription(subscription, providerFile)
+            providerFile.writeBytes(downloadSubscription(subscription))
         }
         val config = File(home, "config.yaml")
-        config.writeText(buildConfig(subscription, providerFile.absolutePath))
+        config.writeText(buildConfig(providerFile.absolutePath))
 
         Clash.load(applicationInfo.nativeLibraryDir)
         check(Clash.isLoaded()) { "Mihomo 核心加载失败" }
@@ -119,9 +120,22 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
         tunStarted = true
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, notification("已连接 · 国内直连 / 海外代理"))
+
+        // Refresh through the app's own TUN, so the subscription request itself
+        // follows the selected proxy instead of requiring FlClash after setup.
+        scope.launch {
+            delay(5_000)
+            while (isActive && tunStarted) {
+                runCatching { refreshSubscription(subscription, providerFile) }
+                    .onFailure {
+                        android.util.Log.w(TAG, "Subscription refresh failed (${it.javaClass.simpleName})")
+                    }
+                delay(6 * 60 * 60 * 1000L)
+            }
+        }
     }
 
-    private fun prefetchSubscription(subscription: String, target: File) {
+    private fun downloadSubscription(subscription: String): ByteArray {
         fun fetch(proxy: Proxy): ByteArray {
             val connection = URL(subscription).openConnection(proxy)
             connection.connectTimeout = 12_000
@@ -132,7 +146,7 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
             require(bytes.isNotEmpty() && bytes.size <= 10 * 1024 * 1024) {
                 "订阅内容为空或超过 10 MB"
             }
-            val preview = String(bytes, Charsets.UTF_8).trimStart('\uFEFF').trimStart()
+            val preview = String(bytes, Charsets.UTF_8).trimStart('\\uFEFF').trimStart()
             require(
                 !preview.startsWith("<html", ignoreCase = true) &&
                     !preview.startsWith("<!doctype", ignoreCase = true)
@@ -140,17 +154,37 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
             return bytes
         }
 
+        // The first run can bootstrap through FlClash. After BitChord's VPN is
+        // up, the direct Java request is captured by our TUN and routed by PROXY.
         val localFlClash = Proxy(
             Proxy.Type.HTTP,
             InetSocketAddress("127.0.0.1", 7890),
         )
-        val payload = runCatching { fetch(localFlClash) }
+        return runCatching { fetch(localFlClash) }
             .getOrElse { fetch(Proxy.NO_PROXY) }
-        target.writeBytes(payload)
     }
 
-    private fun buildConfig(subscription: String, providerPath: String): String {
-        val safeUrl = subscription.replace("'", "''")
+    private suspend fun refreshSubscription(subscription: String, providerFile: File) {
+        val bytes = downloadSubscription(subscription)
+        val params = JSONObject()
+            .put("providerName", "bitchord-subscription")
+            .put("data", String(bytes, Charsets.UTF_8))
+        val action = JSONObject()
+            .put("id", "bitchord-subscription-refresh")
+            .put("method", "sideLoadExternalProvider")
+            .put("data", params.toString())
+            .toString()
+        val response = suspendCancellableCoroutine<String?> { continuation ->
+            Clash.invokeAction(action) { result ->
+                if (continuation.isActive) continuation.resume(result)
+            }
+        }
+        val result = runCatching { JSONObject(response ?: "{}") }.getOrNull()
+        check(result?.optInt("code", -1) == 0) { "Mihomo rejected refreshed subscription" }
+        providerFile.writeBytes(bytes)
+    }
+
+    private fun buildConfig(providerPath: String): String {
         val safePath = providerPath.replace("\\", "/").replace("'", "''")
         return """
             mixed-port: 17890
@@ -174,10 +208,8 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
                 geoip-code: CN
             proxy-providers:
               bitchord-subscription:
-                type: http
-                url: '$safeUrl'
+                type: file
                 path: '$safePath'
-                interval: 3600
                 health-check:
                   enable: true
                   url: https://www.gstatic.com/generate_204
