@@ -33,7 +33,20 @@ import kotlin.coroutines.resume
  * App-scoped VPN. Android routes only BitChord through this TUN; other apps stay untouched.
  * Mihomo protects its outbound sockets through the VpnService callback, avoiding a VPN loop.
  */
-class EmbeddedProxyVpnService : VpnService(), TunInterface {
+class EmbeddedProxyVpnService : VpnService() {
+    // Adapt VpnService.protect(Boolean) to libmihomo's Unit-returning callback.
+    private val tunCallback = object : TunInterface {
+        override fun protect(fd: Int) {
+            this@EmbeddedProxyVpnService.protect(fd)
+        }
+
+        override fun resolverProcess(
+            protocol: Int,
+            source: String,
+            target: String,
+            uid: Int,
+        ): String = ""
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var tunStarted = false
 
@@ -110,7 +123,7 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
         val fd = descriptor.detachFd()
         Clash.startTUN(
             fd = fd,
-            cb = this,
+            cb = tunCallback,
             device = "bitchord",
             stack = "system",
             address = "172.19.0.1/30",
@@ -261,12 +274,6 @@ class EmbeddedProxyVpnService : VpnService(), TunInterface {
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
-
-    override fun protect(fd: Int) {
-        super.protect(fd)
-    }
-
-    override fun resolverProcess(protocol: Int, source: String, target: String, uid: Int): String = ""
 
     override fun onRevoke() {
         stopCore()
